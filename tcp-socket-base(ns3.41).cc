@@ -1197,6 +1197,7 @@ TcpSocketBase::ForwardUp(Ptr<Packet> packet,
     Address fromAddress = InetSocketAddress(header.GetSource(), port);
     Address toAddress = InetSocketAddress(header.GetDestination(), m_endPoint->GetLocalPort());
 
+//bhuvan
     TcpHeader tcpHeader;
     uint32_t bytesRemoved = packet->PeekHeader(tcpHeader);
 
@@ -1220,7 +1221,7 @@ TcpSocketBase::ForwardUp(Ptr<Packet> packet,
     {
         m_congestionControl->CwndEvent(m_tcb, TcpSocketState::CA_EVENT_ECN_NO_CE);
     }
-
+//bhuvan
     DoForwardUp(packet, fromAddress, toAddress);
 }
 
@@ -1693,6 +1694,8 @@ TcpSocketBase::EnterRecovery(uint32_t currentDelivered)
         m_sackEnabled ? BytesInFlight() : BytesInFlight() + m_tcb->m_segmentSize;
     m_tcb->m_ssThresh = m_congestionControl->GetSsThresh(m_tcb, bytesInFlight);
 
+//bhuvan
+
     if (!m_congestionControl->HasCongControl())
     {
         m_recoveryOps->EnterRecovery(m_tcb, m_dupAckCount, UnAckDataCount(), currentDelivered);
@@ -1701,6 +1704,7 @@ TcpSocketBase::EnterRecovery(uint32_t currentDelivered)
                                   << m_tcb->m_ssThresh << " at fast recovery seqnum " << m_recover
                                   << " calculated in flight: " << bytesInFlight);
     }
+//bhuvan
 
     // (4.3) Retransmit the first data segment presumed dropped
     uint32_t sz = SendDataPacket(m_highRxAckMark, m_tcb->m_segmentSize, true);
@@ -1746,6 +1750,7 @@ TcpSocketBase::DupAck(uint32_t currentDelivered)
         NS_LOG_DEBUG("CA_OPEN -> CA_DISORDER");
     }
 
+//bhuvan
     if (m_tcb->m_congState == TcpSocketState::CA_RECOVERY)
     {
         if (!m_sackEnabled)
@@ -1762,6 +1767,7 @@ TcpSocketBase::DupAck(uint32_t currentDelivered)
                                       << m_tcb->m_cWnd);
         }
     }
+//bhuvan
     else if (m_tcb->m_congState == TcpSocketState::CA_DISORDER)
     {
         // m_dupackCount should not exceed its threshold in CA_DISORDER state
@@ -1884,6 +1890,7 @@ TcpSocketBase::ReceivedAck(Ptr<Packet> packet, const TcpHeader& tcpHeader)
         }
     }
 
+//bhuvan
     if (ackNumber > oldHeadSequence && (m_tcb->m_ecnState != TcpSocketState::ECN_DISABLED) &&
         (tcpHeader.GetFlags() & TcpHeader::ECE))
     {
@@ -1893,7 +1900,7 @@ TcpSocketBase::ReceivedAck(Ptr<Packet> packet, const TcpHeader& tcpHeader)
             m_ecnEchoSeq = ackNumber;
             NS_LOG_DEBUG(TcpSocketState::EcnStateName[m_tcb->m_ecnState] << " -> ECN_ECE_RCVD");
             m_tcb->m_ecnState = TcpSocketState::ECN_ECE_RCVD;
-            if (m_tcb->m_congState != TcpSocketState::CA_CWR)
+            if (m_tcb->m_congState != TcpSocketState::CA_CWR)   //extra
             {
                 EnterCwr(currentDelivered);
             }
@@ -1908,6 +1915,8 @@ TcpSocketBase::ReceivedAck(Ptr<Packet> packet, const TcpHeader& tcpHeader)
     // Update bytes in flight before processing the ACK for proper calculation of congestion window
     NS_LOG_INFO("Update bytes in flight before processing the ACK.");
     BytesInFlight();
+
+//bhuvan
 
     // RFC 6675 Section 5: 2nd, 3rd paragraph and point (A), (B) implementation
     // are inside the function ProcessAck
@@ -2309,9 +2318,8 @@ TcpSocketBase::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
         /* Check if we received an ECN SYN packet. Change the ECN state of receiver to ECN_IDLE if
          * the traffic is ECN capable and sender has sent ECN SYN packet
          */
-
-        if (m_tcb->m_useEcn != TcpSocketState::Off &&
-            (tcpflags & (TcpHeader::CWR | TcpHeader::ECE)) == (TcpHeader::CWR | TcpHeader::ECE))
+//bhuvan
+        if (m_ecnMode == EcnMode_t::ClassicEcn && (tcpflags & (TcpHeader::CWR | TcpHeader::ECE)) == (TcpHeader::CWR | TcpHeader::ECE))
         {
             NS_LOG_INFO("Received ECN SYN packet");
             SendEmptyPacket(TcpHeader::SYN | TcpHeader::ACK | TcpHeader::ECE);
@@ -2323,10 +2331,20 @@ TcpSocketBase::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
             m_tcb->m_ecnState = TcpSocketState::ECN_DISABLED;
             SendEmptyPacket(TcpHeader::SYN | TcpHeader::ACK);
         }
+//bhuvan
     }
     else if (tcpflags & (TcpHeader::SYN | TcpHeader::ACK) &&
-             m_tcb->m_nextTxSequence + SequenceNumber32(1) == tcpHeader.GetAckNumber())
-    { // Handshake completed
+             m_tcb->m_nextTxSequence + SequenceNumber32(1) == tcpHeader.GetAckNumber() && (m_ecnMode == EcnMode_t::ClassicEcn && m_tcb->m_ecnState == TcpSocketState::ECN_CE_RCVD))
+        {
+          NS_LOG_DEBUG ("Receiving SYN/ACK with CE mark");
+          std::cout<<"Receiving SYN/ACK with CE mark\n";
+          m_retxEvent.Cancel ();
+          m_rxBuffer->SetNextRxSequence (tcpHeader.GetSequenceNumber () + SequenceNumber32 (1));
+          m_tcb->m_highTxMark = ++m_tcb->m_nextTxSequence;
+          m_txBuffer->SetHeadSequence (m_tcb->m_nextTxSequence);
+          SendEmptyPacket ((TcpHeader::ACK | TcpHeader::ECE),false);
+          m_tcb->m_ecnState = TcpSocketState::ECN_IDLE;
+        // Handshake completed
         NS_LOG_DEBUG("SYN_SENT -> ESTABLISHED");
         m_congestionControl->CongestionStateSet(m_tcb, TcpSocketState::CA_OPEN);
         m_tcb->m_congState = TcpSocketState::CA_OPEN;
@@ -2343,17 +2361,19 @@ TcpSocketBase::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
         /* Check if we received an ECN SYN-ACK packet. Change the ECN state of sender to ECN_IDLE if
          * receiver has sent an ECN SYN-ACK packet and the  traffic is ECN Capable
          */
-        if (m_tcb->m_useEcn != TcpSocketState::Off &&
-            (tcpflags & (TcpHeader::CWR | TcpHeader::ECE)) == (TcpHeader::ECE))
+
+        //verification
+        if (m_ecnMode == EcnMode_t::ClassicEcn && (tcpflags & (TcpHeader::CWR | TcpHeader::ECE)) == (TcpHeader::ECE))
         {
-            NS_LOG_INFO("Received ECN SYN-ACK packet.");
-            NS_LOG_DEBUG(TcpSocketState::EcnStateName[m_tcb->m_ecnState] << " -> ECN_IDLE");
-            m_tcb->m_ecnState = TcpSocketState::ECN_IDLE;
+          NS_LOG_INFO ("Received ECN SYN-ACK packet.");
+          NS_LOG_DEBUG (TcpSocketState::EcnStateName[m_tcb->m_ecnState] << " -> ECN_IDLE");
+          m_tcb->m_ecnState = TcpSocketState::ECN_IDLE;
         }
-        else
+      else
         {
-            m_tcb->m_ecnState = TcpSocketState::ECN_DISABLED;
+          m_tcb->m_ecnState = TcpSocketState::ECN_DISABLED;
         }
+        //verification
         SendPendingData(m_connected);
         Simulator::ScheduleNow(&TcpSocketBase::ConnectionSucceeded, this);
         // Always respond to first data packet to speed up the connection.
@@ -2389,6 +2409,9 @@ TcpSocketBase::ProcessSynRcvd(Ptr<Packet> packet,
     if (tcpflags == 0 ||
         (tcpflags == TcpHeader::ACK &&
          m_tcb->m_nextTxSequence + SequenceNumber32(1) == tcpHeader.GetAckNumber()))
+
+         /// main part 
+         
     { // If it is bare data, accept it and move to ESTABLISHED state. This is
         // possibly due to ACK lost in 3WHS. If in-sequence ACK is received, the
         // handshake is completed nicely.
