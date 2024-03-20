@@ -180,7 +180,7 @@ TcpSocketBase::GetTypeId()
                                     EcnMode_t::ClassicEcn, "ClassicEcn"))
             //bhuvan
 
-            
+
             .AddTraceSource("RTO",
                             "Retransmission timeout",
                             MakeTraceSourceAccessor(&TcpSocketBase::m_rto),
@@ -382,6 +382,9 @@ TcpSocketBase::TcpSocketBase(const TcpSocketBase& sock)
       m_txTrace(sock.m_txTrace),
       m_rxTrace(sock.m_rxTrace),
       m_pacingTimer(Timer::CANCEL_ON_DESTROY),
+      //bhuvan
+       m_ecnMode (sock.m_ecnMode),
+      //bhuvan
       m_ecnEchoSeq(sock.m_ecnEchoSeq),
       m_ecnCESeq(sock.m_ecnCESeq),
       m_ecnCWRSeq(sock.m_ecnCWRSeq)
@@ -1070,14 +1073,17 @@ TcpSocketBase::DoConnect()
         m_state == CLOSE_WAIT)
     { // send a SYN packet and change state into SYN_SENT
         // send a SYN packet with ECE and CWR flags set if sender is ECN capable
-        if (m_tcb->m_useEcn == TcpSocketState::On)
+        
+        //bhuvan
+        if (m_ecnMode == EcnMode_t::ClassicEcn)
         {
-            SendEmptyPacket(TcpHeader::SYN | TcpHeader::ECE | TcpHeader::CWR);
+          SendEmptyPacket ((TcpHeader::SYN | TcpHeader::ECE | TcpHeader::CWR),false);
         }
-        else
+      else
         {
-            SendEmptyPacket(TcpHeader::SYN);
+          SendEmptyPacket ((TcpHeader::SYN),false);
         }
+        //bhuvan
         NS_LOG_DEBUG(TcpStateName[m_state] << " -> SYN_SENT");
         m_state = SYN_SENT;
         m_tcb->m_ecnState = TcpSocketState::ECN_DISABLED; // because sender is not yet aware about
