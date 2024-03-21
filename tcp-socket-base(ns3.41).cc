@@ -821,7 +821,7 @@ TcpSocketBase::ShutdownSend()
         if (m_state == ESTABLISHED || m_state == CLOSE_WAIT)
         {
             NS_LOG_INFO("Empty tx buffer, send fin");
-            SendEmptyPacket(TcpHeader::FIN);
+            SendEmptyPacket((TcpHeader::FIN),false);
 
             if (m_state == ESTABLISHED)
             { // On active close: I am the first one to send FIN
@@ -1109,13 +1109,13 @@ TcpSocketBase::DoClose()
     case SYN_RCVD:
     case ESTABLISHED:
         // send FIN to close the peer
-        SendEmptyPacket(TcpHeader::FIN);
+        SendEmptyPacket((TcpHeader::FIN),false);
         NS_LOG_DEBUG("ESTABLISHED -> FIN_WAIT_1");
         m_state = FIN_WAIT_1;
         break;
     case CLOSE_WAIT:
         // send FIN+ACK to close the peer
-        SendEmptyPacket(TcpHeader::FIN | TcpHeader::ACK);
+        SendEmptyPacket((TcpHeader::FIN | TcpHeader::ACK),false);
         NS_LOG_DEBUG("CLOSE_WAIT -> LAST_ACK");
         m_state = LAST_ACK;
         break;
@@ -1314,7 +1314,7 @@ TcpSocketBase::IsValidTcpSegment(const SequenceNumber32 seq,
                                 << m_tcb->m_rxBuffer->NextRxSequence() << ":"
                                 << m_tcb->m_rxBuffer->MaxRxSequence() << ")");
         // Acknowledgement should be sent for all unacceptable packets (RFC793, p.69)
-        SendEmptyPacket(TcpHeader::ACK);
+        SendEmptyPacket((TcpHeader::ACK),false);
         return false;
     }
     return true;
@@ -1536,14 +1536,14 @@ TcpSocketBase::ProcessEstablished(Ptr<Packet> packet, const TcpHeader& tcpHeader
             if (m_tcb->m_ecnState == TcpSocketState::ECN_CE_RCVD ||
                 m_tcb->m_ecnState == TcpSocketState::ECN_SENDING_ECE)
             {
-                SendEmptyPacket(TcpHeader::ACK | TcpHeader::ECE);
+                SendEmptyPacket((TcpHeader::ACK | TcpHeader::ECE),false);
                 NS_LOG_DEBUG(TcpSocketState::EcnStateName[m_tcb->m_ecnState]
                              << " -> ECN_SENDING_ECE");
                 m_tcb->m_ecnState = TcpSocketState::ECN_SENDING_ECE;
             }
             else
             {
-                SendEmptyPacket(TcpHeader::ACK);
+                SendEmptyPacket((TcpHeader::ACK),false);
             }
         }
         else
@@ -2322,14 +2322,14 @@ TcpSocketBase::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
         if (m_ecnMode == EcnMode_t::ClassicEcn && (tcpflags & (TcpHeader::CWR | TcpHeader::ECE)) == (TcpHeader::CWR | TcpHeader::ECE))
         {
             NS_LOG_INFO("Received ECN SYN packet");
-            SendEmptyPacket(TcpHeader::SYN | TcpHeader::ACK | TcpHeader::ECE);
+            SendEmptyPacket((TcpHeader::SYN | TcpHeader::ACK | TcpHeader::ECE),true);
             NS_LOG_DEBUG(TcpSocketState::EcnStateName[m_tcb->m_ecnState] << " -> ECN_IDLE");
             m_tcb->m_ecnState = TcpSocketState::ECN_IDLE;
         }
         else
         {
             m_tcb->m_ecnState = TcpSocketState::ECN_DISABLED;
-            SendEmptyPacket(TcpHeader::SYN | TcpHeader::ACK);
+            SendEmptyPacket((TcpHeader::SYN | TcpHeader::ACK),false);
         }
 //bhuvan
     }
@@ -2356,7 +2356,7 @@ TcpSocketBase::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
         m_txBuffer->SetHeadSequence(m_tcb->m_nextTxSequence);
         // Before sending packets, update the pacing rate based on RTT measurement so far
         UpdatePacingRate();
-        SendEmptyPacket(TcpHeader::ACK);
+        SendEmptyPacket((TcpHeader::ACK),false);
 
         /* Check if we received an ECN SYN-ACK packet. Change the ECN state of sender to ECN_IDLE if
          * receiver has sent an ECN SYN-ACK packet and the  traffic is ECN Capable
@@ -2502,7 +2502,7 @@ TcpSocketBase::ProcessSynRcvd(Ptr<Packet> packet,
         else
         {
             m_tcb->m_ecnState = TcpSocketState::ECN_DISABLED;
-            SendEmptyPacket(TcpHeader::SYN | TcpHeader::ACK);
+            SendEmptyPacket((TcpHeader::SYN | TcpHeader::ACK),false);
         }
     }
     else if (tcpflags == (TcpHeader::FIN | TcpHeader::ACK))
@@ -2614,7 +2614,7 @@ TcpSocketBase::ProcessWait(Ptr<Packet> packet, const TcpHeader& tcpHeader)
         {
             TimeWait();
         }
-        SendEmptyPacket(TcpHeader::ACK);
+        SendEmptyPacket((TcpHeader::ACK),false);
         if (!m_shutdownRecv)
         {
             NotifyDataRecv();
@@ -2643,7 +2643,7 @@ TcpSocketBase::ProcessClosing(Ptr<Packet> packet, const TcpHeader& tcpHeader)
         // anyone. If anything other than ACK is received, respond with a reset.
         if (tcpflags == TcpHeader::FIN || tcpflags == (TcpHeader::FIN | TcpHeader::ACK))
         { // FIN from the peer as well. We can close immediately.
-            SendEmptyPacket(TcpHeader::ACK);
+            SendEmptyPacket((TcpHeader::ACK),false);
         }
         else if (tcpflags != TcpHeader::RST)
         { // Receive of SYN or SYN+ACK or bad flags or pure data
@@ -2677,7 +2677,7 @@ TcpSocketBase::ProcessLastAck(Ptr<Packet> packet, const TcpHeader& tcpHeader)
     }
     else if (tcpflags == TcpHeader::FIN)
     { // Received FIN again, the peer probably lost the FIN+ACK
-        SendEmptyPacket(TcpHeader::FIN | TcpHeader::ACK);
+        SendEmptyPacket((TcpHeader::FIN | TcpHeader::ACK),false);
     }
     else if (tcpflags == (TcpHeader::FIN | TcpHeader::ACK) || tcpflags == TcpHeader::RST)
     {
@@ -2760,7 +2760,7 @@ TcpSocketBase::DoPeerClose()
     }
     else
     { // Need to ack, the application will close later
-        SendEmptyPacket(TcpHeader::ACK);
+        SendEmptyPacket((TcpHeader::ACK),false);
     }
     if (m_state == LAST_ACK)
     {
@@ -2993,7 +2993,7 @@ void
 TcpSocketBase::SendRST()
 {
     NS_LOG_FUNCTION(this);
-    SendEmptyPacket(TcpHeader::RST);
+    SendEmptyPacket((TcpHeader::RST),false);
     NotifyErrorClose();
     DeallocateEndPoint();
 }
@@ -3711,7 +3711,7 @@ TcpSocketBase::ReceivedData(Ptr<Packet> p, const TcpHeader& tcpHeader)
         if (m_tcb->m_ecnState == TcpSocketState::ECN_CE_RCVD ||
             m_tcb->m_ecnState == TcpSocketState::ECN_SENDING_ECE)
         {
-            SendEmptyPacket(TcpHeader::ACK | TcpHeader::ECE);
+            SendEmptyPacket((TcpHeader::ACK | TcpHeader::ECE),false);
             NS_LOG_DEBUG(TcpSocketState::EcnStateName[m_tcb->m_ecnState] << " -> ECN_SENDING_ECE");
             m_tcb->m_ecnState = TcpSocketState::ECN_SENDING_ECE;
         }
@@ -4094,7 +4094,7 @@ TcpSocketBase::LastAckTimeout()
             return;
         }
         m_dataRetrCount--;
-        SendEmptyPacket(TcpHeader::FIN | TcpHeader::ACK);
+        SendEmptyPacket((TcpHeader::FIN | TcpHeader::ACK),false);
         NS_LOG_LOGIC("TcpSocketBase " << this << " rescheduling LATO1");
         Time lastRto = m_rtt->GetEstimate() + Max(m_clockGranularity, m_rtt->GetVariation() * 4);
         m_lastAckEvent = Simulator::Schedule(lastRto, &TcpSocketBase::LastAckTimeout, this);
