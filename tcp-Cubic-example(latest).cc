@@ -60,7 +60,7 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/traffic-control-module.h"
 #include "ns3/red-queue-disc.h"
-
+#include "ns3/callback.h"
 
 #include <filesystem>
 
@@ -138,7 +138,10 @@ main(int argc, char* argv[])
     bool bql = true;
     bool enablePcap = true;
     Time stopTime = Seconds(100);
-
+double qW=0.5;
+double minTh=5.0;
+double maxTh=50.0;
+bool AdaptMaxP=false;
     CommandLine cmd(__FILE__);
     cmd.AddValue("tcpTypeId", "Transport protocol to use: TcpNewReno, TcpCubic", tcpTypeId);
     cmd.AddValue("delAckCount", "Delayed ACK count", delAckCount);
@@ -147,16 +150,16 @@ main(int argc, char* argv[])
                  "Stop time for applications / simulation time will be stopTime + 1",
                  stopTime);
      cmd.AddValue ("useEcn", "Use ECN", useEcn);
-    cmd.AddValue("minTh", "Minimum threshold for RED", minTh);
+     cmd.AddValue("minTh", "Minimum threshold for RED", minTh);
     cmd.AddValue("maxTh", "Maximum threshold for RED", maxTh);
-    cmd.AddValue("maxP", "Maximum probability for RED", maxP);
-    cmd.AddValue("wq", "Weight for queue size for RED", wq);            
+    cmd.AddValue("AdaptmaxP", "Maximum probability for RED", AdaptMaxP);
+    cmd.AddValue("QW", "Weight for queue size for RED", qW);            
     cmd.Parse(argc, argv);
 
     queueDisc = std::string("ns3::") + queueDisc;
 
     Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::" + tcpTypeId));
-
+ 
     // The maximum send buffer size is set to 4194304 bytes (4MB) and the
     // maximum receive buffer size is set to 6291456 bytes (6MB) in the Linux
     // kernel. The same buffer sizes are used as default in this example.
@@ -169,18 +172,17 @@ main(int argc, char* argv[])
      Config::SetDefault ("ns3::RedQueueDisc::ARED", BooleanValue (true));
     Config::SetDefault ("ns3::RedQueueDisc::Gentle", BooleanValue (true));
     Config::SetDefault(queueDisc + "::MaxSize", QueueSizeValue(QueueSize("100p")));
-   Config::SetDefault("ns3::RedQueueDisc::MinTh", DoubleValue(minTh));
-   Config::SetDefault("ns3::RedQueueDisc::MinTh", DoubleValue(minTh));
-   Config::SetDefault("ns3::RedQueueDisc::MaxTh", DoubleValue(maxTh));
-   Config::SetDefault("ns3::RedQueueDisc::MaxP", DoubleValue(maxP));
+   Config::SetDefault("ns3::RedQueueDisc::MinTh",DoubleValue(minTh));
+  Config::SetDefault("ns3::RedQueueDisc::MaxTh",DoubleValue(maxTh));
+ Config::SetDefault("ns3::RedQueueDisc::AdaptMaxP", BooleanValue(AdaptMaxP));
    Config::SetDefault("ns3::RedQueueDisc::LinkBandwidth", StringValue("10Mbps"));
   Config::SetDefault("ns3::RedQueueDisc::LinkDelay", StringValue("10ms"));
-  Config::SetDefault("ns3::RedQueueDisc::Mode", StringValue("QUEUE_MODE_PACKETS"));
-  Config::SetDefault("ns3::RedQueueDisc::MeanPktSize", DoubleValue(1500));  // Set the mean packet size to 1500 bytes
-  Config::SetDefault("ns3::RedQueueDisc::QW", DoubleValue(wq));
+//   Config::SetDefault("ns3::RedQueueDisc::Mode", StringValue("QUEUE_MODE_PACKETS"));
+ Config::SetDefault("ns3::RedQueueDisc::MeanPktSize", UintegerValue(500));  // Set the mean packet size to 1500 bytes
+   Config::SetDefault("ns3::RedQueueDisc::QW", DoubleValue(qW));
   Config::SetDefault("ns3::RedQueueDisc::UseHardDrop", BooleanValue(false));
   Config::SetDefault(queueDisc + "::MaxSize", QueueSizeValue(QueueSize("666p")));
-   Config::SetDefault ("ns3::TcpSocketBase::EcnMode",StringValue("ClassicEcn"));
+//    Config::SetDefault ("ns3::TcpSocketBase::EcnMode",StringValue("ClassicEcn"));
   Config::SetDefault ("ns3::RedQueueDisc::UseEcn", BooleanValue (useEcn));
  
   TypeId qdTid;
