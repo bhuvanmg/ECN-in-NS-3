@@ -30,7 +30,7 @@
 #include "ns3/sequence-number.h"
 #include "ns3/timer.h"
 #include "ns3/traced-value.h"
-
+#include "ns3/tcp-socket-state.h" //bhuvan
 #include <queue>
 #include <stdint.h>
 
@@ -456,115 +456,115 @@ class TcpSocketBase : public TcpSocket
      *
      * \param recovery Algorithm to be installed
      */
-    void SetRecoveryAlgorithm(Ptr<TcpRecoveryOps> recovery);
 
-    /**
-     * \brief Mark ECT(0) codepoint
-     *
-     * \param tos the TOS byte to modify
-     * \return TOS with ECT(0) codepoint set
-     */
-    inline uint8_t MarkEcnEct0(uint8_t tos) const
+    //bhuvan
+    void SetRecoveryAlgorithm (Ptr<TcpRecoveryOps> recovery);
+
+
+  //set ce flag to 1
+  void SetCE(Ptr<Packet> p);
+
+
+  /**
+   * \brief Mark ECT(0)
+   *
+   * \return TOS with ECT(0)
+   */
+
+  inline uint8_t MarkEcnEct0 (uint8_t tos) const
     {
-        return ((tos & 0xfc) | 0x02);
+      return ((tos & 0xfc) | 0x02);
     }
 
-    /**
-     * \brief Mark ECT(1) codepoint
-     *
-     * \param tos the TOS byte to modify
-     * \return TOS with ECT(1) codepoint set
-     */
-    inline uint8_t MarkEcnEct1(uint8_t tos) const
+  /**
+   * \brief Mark ECT(1)
+   *
+   * \return TOS with ECT(1)
+   */
+  inline uint8_t MarkEcnEct1 (uint8_t tos) const
     {
-        return ((tos & 0xfc) | 0x01);
+      return ((tos & 0xfc) | 0x01);
     }
 
-    /**
-     * \brief Mark CE codepoint
-     *
-     * \param tos the TOS byte to modify
-     * \return TOS with CE codepoint set
-     */
-    inline uint8_t MarkEcnCe(uint8_t tos) const
+  /**
+   * \brief Mark CE
+   *
+   * \return TOS with CE
+   */
+  inline uint8_t MarkEcnCe (uint8_t tos) const
     {
-        return ((tos & 0xfc) | 0x03);
+      return ((tos & 0xfc) | 0x03);
     }
 
-    /**
-     * \brief Clears ECN bits from TOS
-     *
-     * \param tos the TOS byte to modify
-     * \return TOS without ECN bits
-     */
-    inline uint8_t ClearEcnBits(uint8_t tos) const
+  /**
+   * \brief Clears ECN bits from TOS
+   *
+   * \return TOS without ECN bits
+   */
+  inline uint8_t ClearEcnBits (uint8_t tos) const
     {
-        return tos & 0xfc;
+      return tos & 0xfc;
+    }
+   bool CheckEcnRvdSyn (const TcpHeader& tcpHeader);
+   bool CheckEcnRvdSynAck (const TcpHeader& tcpHeader);
+   bool CheckEcnRvdEcnEcho (const TcpHeader& tcpHeader);
+
+  /**
+   * \brief ECN Modes
+   */
+  typedef enum
+    {
+      NoEcn = 0,   //!< ECN is not enabled.
+      ClassicEcn   //!< ECN functionality as described in RFC 3168.
+    } EcnMode_t;
+
+  /**
+   * \brief Checks if TOS has no ECN bits
+   *
+   * \return true if TOS does not have any ECN bits set; otherwise false
+   */
+  inline bool CheckNoEcn (uint8_t tos) const
+    {
+      return ((tos & 0xfc) == 0x00);
     }
 
-    /**
-     * \brief Checks if TOS has no ECN codepoints
-     *
-     * \param tos the TOS byte to check
-     * \return true if TOS does not have any ECN codepoints set; otherwise false
-     */
-    inline bool CheckNoEcn(uint8_t tos) const
+  /**
+   * \brief Checks for ECT(0) bits
+   *
+   * \return true if TOS has ECT(0) bit set; otherwise false
+   */
+  inline bool CheckEcnEct0 (uint8_t tos) const
     {
-        return ((tos & 0x03) == 0x00);
+      return ((tos & 0xfc) == 0x02);
     }
 
-    /**
-     * \brief Checks for ECT(0) codepoint
-     *
-     * \param tos the TOS byte to check
-     * \return true if TOS has ECT(0) codepoint set; otherwise false
-     */
-    inline bool CheckEcnEct0(uint8_t tos) const
+  /**
+   * \brief Checks for ECT(1) bits
+   *
+   * \return true if TOS has ECT(1) bit set; otherwise false
+   */
+  inline bool CheckEcnEct1 (uint8_t tos) const
     {
-        return ((tos & 0x03) == 0x02);
+      return ((tos & 0xfc) == 0x01);
     }
 
-    /**
-     * \brief Checks for ECT(1) codepoint
-     *
-     * \param tos the TOS byte to check
-     * \return true if TOS has ECT(1) codepoint set; otherwise false
-     */
-    inline bool CheckEcnEct1(uint8_t tos) const
+  /**
+   * \brief Checks for CE bits
+   *
+   * \return true if TOS has CE bit set; otherwise false
+   */
+  inline bool CheckEcnCe (uint8_t tos) const
     {
-        return ((tos & 0x03) == 0x01);
+      return ((tos & 0xfc) == 0x03);
     }
 
-    /**
-     * \brief Checks for CE codepoint
-     *
-     * \param tos the TOS byte to check
-     * \return true if TOS has CE codepoint set; otherwise false
-     */
-    inline bool CheckEcnCe(uint8_t tos) const
-    {
-        return ((tos & 0x03) == 0x03);
-    }
-
-    /**
-     * \brief mark ECN code point
-     *
-     * \param tos the TOS byte to modify
-     * \param codePoint the codepoint to use
-     * \return TOS with specified ECN code point
-     */
-    inline uint8_t MarkEcnCodePoint(const uint8_t tos,
-                                    const TcpSocketState::EcnCodePoint_t codePoint) const
-    {
-        return ((tos & 0xfc) | codePoint);
-    }
-
-    /**
-     * \brief Set ECN mode of use on the socket
-     *
-     * \param useEcn Mode of ECN to use.
-     */
-    void SetUseEcn(TcpSocketState::UseEcn_t useEcn);
+  /**
+   * \brief Set ECN mode to use on the socket
+   *
+   * \param ecnMode Mode of ECN. Currently NoEcn and ClassicEcn is supported.
+   */
+  void SetEcn (EcnMode_t ecnMode);
+//bhuvan
 
     /**
      * \brief Enable or disable pacing
@@ -815,7 +815,8 @@ class TcpSocketBase : public TcpSocket
      *
      * \param flags the packet's flags
      */
-    virtual void SendEmptyPacket(uint8_t flags);
+    virtual void SendEmptyPacket(uint8_t flags,bool ecnp); //bhuvan
+
 
     /**
      * \brief Send reset and tear down this socket
@@ -1258,7 +1259,7 @@ class TcpSocketBase : public TcpSocket
      * \brief Add Tags for the Socket
      * \param p Packet
      */
-    void AddSocketTags(const Ptr<Packet>& p) const;
+    void AddSocketTags(const Ptr<Packet>& p,bool withEct=false) const; //bhuvan
 
     /**
      * Get the current value of the receiver's offered window (RCV.WND)
@@ -1386,12 +1387,13 @@ class TcpSocketBase : public TcpSocket
     Timer m_pacingTimer{Timer::CANCEL_ON_DESTROY}; //!< Pacing Event
 
     // Parameters related to Explicit Congestion Notification
-    TracedValue<SequenceNumber32> m_ecnEchoSeq{
-        0}; //!< Sequence number of the last received ECN Echo
-    TracedValue<SequenceNumber32> m_ecnCESeq{
-        0}; //!< Sequence number of the last received Congestion Experienced
-    TracedValue<SequenceNumber32> m_ecnCWRSeq{0}; //!< Sequence number of the last sent CWR
+   EcnMode_t                     m_ecnMode    {EcnMode_t::NoEcn};      //!< Socket ECN capability
+  TracedValue<SequenceNumber32> m_ecnEchoSeq {0};      //!< Sequence number of the last received ECN Echo
+  TracedValue<SequenceNumber32> m_ecnCESeq   {0};      //!< Sequence number of the last received Congestion Experienced
+  TracedValue<SequenceNumber32> m_ecnCWRSeq  {0};      //!< Sequence number of the last sent CWR
 };
+//bhuvan
+
 
 /**
  * \ingroup tcp
