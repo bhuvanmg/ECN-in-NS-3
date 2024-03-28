@@ -1,0 +1,8 @@
+set terminal pngcairo enhanced color lw 1.5 font 'Times Roman'
+set output "throughput.png"
+set xlabel "Time (s)"
+set ylabel "Throughput (Mbps)"
+set xrange [01.2e+09:9.98e+10] 
+set yrange [0:11]
+set key right top vertical
+plot "throughput.dat" using 1:2 title 'Throughput' with lines lw 1.5 lc 'blue'
