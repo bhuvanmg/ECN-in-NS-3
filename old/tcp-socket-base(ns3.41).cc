@@ -161,16 +161,16 @@ TcpSocketBase::GetTypeId()
                           BooleanValue(true),
                           MakeBooleanAccessor(&TcpSocketBase::m_limitedTx),
                           MakeBooleanChecker())
-            .AddAttribute("UseEcn",
-                          "Parameter to set ECN functionality",
-                          EnumValue(TcpSocketState::Off),
-                          MakeEnumAccessor<TcpSocketState::UseEcn_t>(&TcpSocketBase::SetUseEcn),
-                          MakeEnumChecker(TcpSocketState::Off,
-                                          "Off",
-                                          TcpSocketState::On,
-                                          "On",
-                                          TcpSocketState::AcceptOnly,
-                                          "AcceptOnly"))
+            // .AddAttribute("UseEcn",
+            //               "Parameter to set ECN functionality",
+            //               EnumValue(TcpSocketState::Off),
+            //               MakeEnumAccessor<TcpSocketState::UseEcn_t>(&TcpSocketBase::SetUseEcn),
+            //               MakeEnumChecker(TcpSocketState::Off,
+            //                               "Off",
+            //                               TcpSocketState::On,
+            //                               "On",
+            //                               TcpSocketState::AcceptOnly,
+            //                               "AcceptOnly"))
 
             //bhuvan
             .AddAttribute ("EcnMode", "Determines the mode of ECN",
